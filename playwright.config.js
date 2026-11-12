@@ -30,7 +30,7 @@ export default defineConfig({
       env: { STUB_PORT: String(STUB_PORT) },
     },
     {
-      command: 'npm run build --silent && node tests/e2e/start-server.js',
+      command: 'npm run build --silent && make --no-print-directory build && sh tests/e2e/start-server.sh',
       url: `http://localhost:${APP_PORT}/api/health`,
       reuseExistingServer: false,
       env: {

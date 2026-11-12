@@ -1,0 +1,243 @@
+openapi: 3.1.0
+info:
+  title: Comic Collection API
+  version: 0.1.0
+  license:
+    name: UNLICENSED
+  description: |
+    JSON API used by the Preact client. Photos are uploaded as base64 data URLs
+    inside JSON, so the payload size limit is 15 MB and each photo is at most 10 MB.
+    The API has no authentication and is meant for a private network or behind a login.
+security: []
+servers:
+  - url: http://localhost:3000
+paths:
+  /api/health:
+    get:
+      operationId: health
+      summary: Report that the server is running and whether Inducks data is available.
+      responses:
+        "200":
+          description: Server status.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, inducks]
+                properties:
+                  ok: { type: boolean }
+                  inducks: { type: boolean, description: "True when the Inducks index has been built." }
+  /api/collection:
+    get:
+      operationId: listCollection
+      summary: List every issue in the collection, ordered by series and issue number.
+      responses:
+        "200":
+          description: The collection.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, series]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/Comic" }
+                  series:
+                    type: array
+                    items: { type: string }
+    post:
+      operationId: addComic
+      summary: Add an issue with its cover photo.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/NewComic" }
+      responses:
+        "201":
+          description: The issue was saved.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [item]
+                properties:
+                  item: { $ref: "#/components/schemas/Comic" }
+        "400":
+          $ref: "#/components/responses/Error"
+        "409":
+          description: The issue is already in the collection. The existing issue is returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [error, item]
+                properties:
+                  error: { type: string }
+                  item: { $ref: "#/components/schemas/Comic" }
+        "413":
+          $ref: "#/components/responses/Error"
+  /api/collection/check:
+    get:
+      operationId: checkCollection
+      summary: Check whether an issue is already in the collection. Series and number are matched loosely (case, accents and leading zeros are ignored).
+      parameters:
+        - { $ref: "#/components/parameters/Series" }
+        - { $ref: "#/components/parameters/Number" }
+      responses:
+        "200":
+          description: Ownership result.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [owned]
+                properties:
+                  owned: { type: boolean }
+                  item:
+                    oneOf:
+                      - $ref: "#/components/schemas/Comic"
+                      - type: "null"
+        "400":
+          $ref: "#/components/responses/Error"
+  /api/lookup:
+    get:
+      operationId: lookupIssue
+      summary: Search comics.org and Inducks for candidate matches. Each source reports its own status, so one failing source does not hide the other.
+      parameters:
+        - { $ref: "#/components/parameters/Series" }
+        - { $ref: "#/components/parameters/Number" }
+        - name: year
+          in: query
+          required: false
+          description: Four-digit publication year used to narrow the results.
+          schema: { type: string, pattern: "^\\d{4}$" }
+      responses:
+        "200":
+          description: Candidate matches and per-source status.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [series, number, year, candidates, sources]
+                properties:
+                  series: { type: string }
+                  number: { type: string }
+                  year: { type: string }
+                  candidates:
+                    type: array
+                    items: { $ref: "#/components/schemas/Candidate" }
+                  sources:
+                    type: object
+                    additionalProperties: { $ref: "#/components/schemas/SourceStatus" }
+        "400":
+          $ref: "#/components/responses/Error"
+  /api/comics/{id}:
+    delete:
+      operationId: removeComic
+      summary: Remove an issue and its photo.
+      parameters:
+        - { $ref: "#/components/parameters/Id" }
+      responses:
+        "204":
+          description: Removed.
+        "400":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+  /api/comics/{id}/photo:
+    get:
+      operationId: getComicPhoto
+      summary: Return the cover photo of an issue.
+      parameters:
+        - { $ref: "#/components/parameters/Id" }
+      responses:
+        "200":
+          description: The photo.
+          content:
+            image/jpeg: { schema: { type: string, format: binary } }
+            image/png: { schema: { type: string, format: binary } }
+            image/webp: { schema: { type: string, format: binary } }
+        "404":
+          $ref: "#/components/responses/Error"
+components:
+  parameters:
+    Series:
+      name: series
+      in: query
+      required: true
+      description: Series name, up to 100 characters.
+      schema: { type: string, maxLength: 100 }
+    Number:
+      name: number
+      in: query
+      required: true
+      description: Issue number, up to 20 characters.
+      schema: { type: string, maxLength: 20 }
+    Id:
+      name: id
+      in: path
+      required: true
+      schema: { type: integer, minimum: 1 }
+  responses:
+    Error:
+      description: The request was rejected.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+  schemas:
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error: { type: string }
+    Comic:
+      type: object
+      required: [id, series, number, source, sourceUrl, seriesTitle, title, publicationDate, coverUrl, photoUrl, createdAt]
+      properties:
+        id: { type: integer }
+        series: { type: string }
+        number: { type: string }
+        source: { type: string, enum: ["", "comics.org", "inducks"] }
+        sourceUrl: { type: string }
+        seriesTitle: { type: string }
+        title: { type: string }
+        publicationDate: { type: string }
+        coverUrl: { type: string }
+        photoUrl: { type: string }
+        createdAt: { type: string, format: date-time }
+    NewComic:
+      type: object
+      required: [series, number, photo]
+      properties:
+        series: { type: string, maxLength: 100 }
+        number: { type: string, maxLength: 20 }
+        photo:
+          type: string
+          description: JPEG, PNG or WebP as a base64 data URL, for example "data:image/jpeg;base64,...".
+        match:
+          oneOf:
+            - $ref: "#/components/schemas/Candidate"
+            - type: "null"
+          description: The catalogue entry the user picked, if any. Unknown sources and non-http URLs are dropped.
+    Candidate:
+      type: object
+      required: [source, sourceId, sourceUrl, seriesTitle, title, publicationDate, coverUrl]
+      properties:
+        source: { type: string, enum: ["comics.org", "inducks"] }
+        sourceId: { type: string }
+        sourceUrl: { type: string }
+        seriesTitle: { type: string }
+        title: { type: string }
+        publicationDate: { type: string }
+        coverUrl: { type: string }
+    SourceStatus:
+      type: object
+      required: [ok, count]
+      properties:
+        ok: { type: boolean }
+        count: { type: integer }
+        message:
+          type: string
+          description: Present when ok is false. Written for end users.

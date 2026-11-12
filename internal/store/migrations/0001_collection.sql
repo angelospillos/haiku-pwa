@@ -1,8 +1,3 @@
-import fs from 'node:fs';
-import path from 'node:path';
-import { DatabaseSync } from 'node:sqlite';
-
-const SCHEMA = `
 CREATE TABLE IF NOT EXISTS comics (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   series TEXT NOT NULL,
@@ -23,15 +18,6 @@ CREATE TABLE IF NOT EXISTS comics (
 
 CREATE TABLE IF NOT EXISTS http_cache (
   cache_key TEXT PRIMARY KEY,
-  payload TEXT NOT NULL,
+  payload BLOB NOT NULL,
   fetched_at INTEGER NOT NULL
 );
-`;
-
-export function openCollectionDb(file) {
-  fs.mkdirSync(path.dirname(file), { recursive: true });
-  const db = new DatabaseSync(file);
-  db.exec('PRAGMA journal_mode = WAL;');
-  db.exec(SCHEMA);
-  return db;
-}

@@ -2,22 +2,22 @@
   "name": "haiku-pwa",
   "version": "0.1.0",
   "private": true,
-  "description": "Personal comic book collection PWA: check an issue number, add it with a photo, and look up metadata from comics.org and inducks.org.",
+  "description": "Personal comic book collection PWA: check an issue number, add it with a photo, and look up metadata from comics.org and inducks.org. Go API, Preact client.",
   "type": "module",
   "engines": {
-    "node": ">=22.13"
+    "node": ">=22.12"
   },
   "scripts": {
-    "dev": "concurrently -n api,web -c blue,magenta \"node --watch server/index.js\" \"vite\"",
+    "dev": "concurrently -n api,web -c blue,magenta \"go run ./cmd/server\" \"vite\"",
     "build": "vite build",
-    "start": "node server/index.js",
-    "sync:inducks": "node server/scripts/sync-inducks.js",
-    "test": "node --test tests/server/*.test.js",
+    "start": "go run ./cmd/server",
+    "sync:inducks": "go run ./cmd/sync-inducks",
+    "test": "go test -race -count=1 ./...",
+    "lint": "golangci-lint run ./...",
     "test:e2e": "playwright test",
     "icons": "node scripts/make-icons.mjs"
   },
   "dependencies": {
-    "express": "^5.3.0",
     "preact": "^10.29.8"
   },
   "devDependencies": {
